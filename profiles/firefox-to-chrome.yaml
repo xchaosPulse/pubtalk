@@ -1,0 +1,8 @@
+name: firefox-to-chrome
+description: Route Firefox output into Chrome microphone
+virtual_sink: virtual-out-to-chrome
+applications:
+  - name: firefox
+    role: playback
+  - name: chrome
+    role: input_target

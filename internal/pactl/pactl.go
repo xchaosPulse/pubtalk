@@ -53,15 +53,17 @@ type SinkInput struct {
 
 // ListSinkInputs fetches all current sink inputs and their properties.
 func (c *Client) ListSinkInputs() ([]SinkInput, error) {
-	out, err := c.Pactl("list", "sink-inputs")
+	// Execute the pactl command to list sink inputs
+	output, err := exec.Command("pactl", "list", "sink-inputs").Output()
 	if err != nil {
-		return nil, fmt.Errorf("failed to list sink-inputs: %w", err)
+		return nil, fmt.Errorf("failed to execute pactl command: %v", err)
 	}
 
+	// Parse the output to extract sink input information
 	var inputs []SinkInput
 	var currentInput *SinkInput
 
-	scanner := bufio.NewScanner(strings.NewReader(string(out)))
+	scanner := bufio.NewScanner(strings.NewReader(string(output)))
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if strings.HasPrefix(line, "Sink Input #") {
@@ -141,6 +143,45 @@ func (c *Client) FindModules(argumentSubstr string) ([]int, error) {
 
 	if len(ids) == 0 {
 		return nil, fmt.Errorf("no modules with argument substring '%s' not found", argumentSubstr)
+	}
+	return ids, nil
+}
+
+// FindModulesMatching finds modules whose argument string contains ALL provided substrings.
+// This is safer when we want to identify modules created with multiple arguments
+// (for example both a specific source and sink). Returns matching module IDs or an error.
+func (c *Client) FindModulesMatching(substrs []string) ([]int, error) {
+	out, err := c.Pactl("list", "short", "modules")
+	if err != nil {
+		return nil, fmt.Errorf("failed to list modules: %w", err)
+	}
+
+	var ids []int
+	scanner := bufio.NewScanner(strings.NewReader(string(out)))
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.Split(line, "\t")
+		if len(parts) < 3 {
+			continue
+		}
+		args := parts[2]
+		matchesAll := true
+		for _, s := range substrs {
+			if !strings.Contains(args, s) {
+				matchesAll = false
+				break
+			}
+		}
+		if matchesAll {
+			id, err := strconv.Atoi(parts[0])
+			if err == nil {
+				ids = append(ids, id)
+			}
+		}
+	}
+
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("no modules matching substrings %v found", substrs)
 	}
 	return ids, nil
 }

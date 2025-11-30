@@ -55,3 +55,18 @@ func TestPactlExecErrorWrapped(t *testing.T) {
 		t.Fatalf("expected error, got nil")
 	}
 }
+
+func TestListSinkInputs(t *testing.T) {
+	fx := &fakeExec{out: []byte(`Sink Input #0
+	application.name = "Firefox"
+Sink Input #1
+	application.name = "Chrome"`), err: nil}
+	c := &Client{Exec: fx, DryRun: false}
+	inputs, err := c.ListSinkInputs()
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(inputs) == 0 {
+		t.Fatal("expected at least one sink input")
+	}
+}
